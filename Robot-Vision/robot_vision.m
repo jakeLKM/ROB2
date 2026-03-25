@@ -7,7 +7,7 @@ close all
 global pose poseOffset scan image
 
 %% Set the ROS domain ID for communication
-setenv('ROS_DOMAIN_ID', '30');
+setenv('ROS_DOMAIN_ID', '30'); %test test test 
 
 %% Display available ROS2 topics (for debug)
 ros2 topic list
