@@ -74,7 +74,7 @@ try
         
         % --- A. PREPROCESSING (Robusthed fra slides) ---
             % Øger kontrasten for at håndtere dårligt lys
-            enhancedImage = imadjust(image);
+            enhancedImage = imadjust(RGB, image);
 
             % Fjerner kamera-støj (Gaussian/Median-filter logik)
             smoothImage = imgaussfilt(enhancedImage, 1);
@@ -144,7 +144,6 @@ try
             end
             
             hold off;
-        end
    
 
         %% PID controller for heading
@@ -167,13 +166,32 @@ try
             ME = MException('NonExeption:EndProgram', 'The program was closed.');
             throw(ME)
         end
-    end
-catch ME
+
+
+        angularVelocity = 0.0;
+        linearVelocity = 0.0;
+    
+        %% Publish velocity commands
+        cmdMsg = ros2message('geometry_msgs/Twist');
+        cmdMsg.linear.x = clip(linearVelocity, -0.1, 0.1);
+        cmdMsg.angular.z = clip(angularVelocity, -1.0, 1.0);
+        % send(cmdPub, cmdMsg);
+    
+        %% Pause to visualize and delete old plots
+        pause(0.1)
+    
+        %% Exit the loop if the figure is closed
+        if size(findobj(visualise.figAvatar)) == 0 | size(findobj(visualise.figImage)) == 0
+            ME = MException('NonExeption:EndProgram', 'The program was closed.');
+            throw(ME)
+        end
+end
+        catch ME
     % Stop the robot
     cmdMsg = ros2message('geometry_msgs/Twist');
     cmdMsg.Linear.x = 0;
     cmdMsg.Angular.z = 0;
-    send(cmdPub, cmdMsg);
+    try send(cmdPub, cmdMsg); catch; end
 
     % Close all figures
     close all
