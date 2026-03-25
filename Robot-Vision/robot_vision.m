@@ -68,14 +68,30 @@ try
         visualise = updateScan(visualise, cart);
 
         %% Visualise image
-                image = flip(image, 1); % Flip image vertically (upside down fix)
-
+        image = flip(image, 1); % Flip image vertically (upside down fix)
         centersR = []; radiiR = []; % Initialisér som tomme
         centersB = []; radiiB = []; % Initialisér som tomme
+        
+        % --- A. PREPROCESSING (Robusthed fra slides) ---
+            % Øger kontrasten for at håndtere dårligt lys
+            enhancedImage = imadjust(image);
 
-        if ~isempty(image) % Tjek at vi faktisk har modtaget et billede
-            % 1. Konverter billedet fra RGB til HSV
+
+
+
+
+            
+            % Konverter billedet fra RGB til HSV
             hsvImage = rgb2hsv(image);
+
+            % --- KONTRAST-FORBEDRING ---
+            % Øg billedets kontrast for at gøre algoritmen mere robust 
+            % over for dårlige lysforhold (som beskrevet i dit slide).
+            % imadjust strækker intensitetsværdierne.
+            enhancedImage = imadjust(image);
+            
+            % 1. Konverter det *forbedrede* billede fra RGB til HSV
+            hsvImage = rgb2hsv(enhancedImage);
             
             % --- FIND RØD CIRKEL MASK ---
             satMin = 0.50; valMin = 0.20; % Fælles tærskelværdier
@@ -106,7 +122,6 @@ try
                 diameterB = 2 * radiiB(1);
                 disp(['Fandt en BLÅ cirkel! Diameter: ', num2str(diameterB), ' px']);
             end
-        end
         
         
         visualise = updateImage(visualise, image);
