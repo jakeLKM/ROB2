@@ -76,25 +76,16 @@ try
             % Øger kontrasten for at håndtere dårligt lys
             enhancedImage = imadjust(image);
 
-
-
-
-
+            % Fjerner kamera-støj (Gaussian/Median-filter logik)
+            smoothImage = imgaussfilt(enhancedImage, 1);
             
-            % Konverter billedet fra RGB til HSV
-            hsvImage = rgb2hsv(image);
-
-            % --- KONTRAST-FORBEDRING ---
-            % Øg billedets kontrast for at gøre algoritmen mere robust 
-            % over for dårlige lysforhold (som beskrevet i dit slide).
-            % imadjust strækker intensitetsværdierne.
-            enhancedImage = imadjust(image);
+            % Konverter til HSV
+            hsvImage = rgb2hsv(smoothImage);
             
-            % 1. Konverter det *forbedrede* billede fra RGB til HSV
-            hsvImage = rgb2hsv(enhancedImage);
+            % --- B. THRESHOLDING (Farve-segmentering) ---
+            satMin = 0.50; valMin = 0.20;
             
             % --- FIND RØD CIRKEL MASK ---
-            satMin = 0.50; valMin = 0.20; % Fælles tærskelværdier
             BW_red = (hsvImage(:,:,1) >= 0.90 | hsvImage(:,:,1) <= 0.10) & ...
                      (hsvImage(:,:,2) >= satMin) & ...
                      (hsvImage(:,:,3) >= valMin);
@@ -104,20 +95,20 @@ try
                       (hsvImage(:,:,2) >= satMin) & ...
                       (hsvImage(:,:,3) >= valMin);
 
-            % 2. Morfologi: Ryd op i begge masker
+            % Morfologi: Ryd op i begge masker
             se = strel('disk', 5);
             BW_red_clean = imclose(imopen(BW_red, se), se);
             BW_blue_clean = imclose(imopen(BW_blue, se), se);
 
-            % 3. Find røde cirkler
-            [centersR, radiiR] = imfindcircles(BW_red_clean, [20 150], 'ObjectPolarity', 'bright');
+            % Find røde cirkler
+            [centersR, radiiR] = imfindcircles(BW_red_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersR)
                 diameterR = 2 * radiiR(1);
                 disp(['Fandt en RØD cirkel! Diameter: ', num2str(diameterR), ' px']);
             end
 
             % 4. Find blå cirkler
-            [centersB, radiiB] = imfindcircles(BW_blue_clean, [20 150], 'ObjectPolarity', 'bright');
+            [centersB, radiiB] = imfindcircles(BW_blue_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersB)
                 diameterB = 2 * radiiB(1);
                 disp(['Fandt en BLÅ cirkel! Diameter: ', num2str(diameterB), ' px']);
@@ -125,10 +116,8 @@ try
         
         
         visualise = updateImage(visualise, image);
-if ~isempty(image)
-            % Aktivér kamerabilledet-figuren igen
-            figure(visualise.figImage);
-            hold on; % Gør det muligt at tegne ovenpå billedet
+        figure(visualise.figImage);
+        hold on;
             
             % Tegn røde cirkler
             if ~isempty(centersR)
@@ -154,7 +143,7 @@ if ~isempty(image)
                      'Color', 'b', 'FontSize', 12, 'FontWeight', 'bold');
             end
             
-            hold off; % Afslut 'hold' for dette loop
+            hold off;
         end
    
 
