@@ -149,7 +149,7 @@ try
 
         %% Exercise 2: Distance Estimation
         H = 0.10; % Real circle size in meters (10 cm)
-        f = 320;  % Camera focal length in pixels (calibrate this value!)
+        f = 1226.5;  % Camera focal length in pixels (calibrated)
 
         if ~isempty(centersR)
             distanceR = f * H / (2 * radiiR(1));
