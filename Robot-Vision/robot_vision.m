@@ -70,50 +70,51 @@ try
         %% Visualise image
         imageRGB = flip(image, 1); % Flip image vertically (upside down fix)
         imageGray = rgb2gray(imageRGB);
-        centersR = []; radiiR = []; % Initialisér som tomme
-        centersB = []; radiiB = []; % Initialisér som tomme
-        
-        % --- A. PREPROCESSING (Robusthed fra slides) ---
-            % Øger kontrasten for at håndtere dårligt lys
+        centersR = []; radiiR = [];
+        centersB = []; radiiB = [];
+
+        %% Exercise 1: Object Detection
+        % --- A. PREPROCESSING ---
+            % Increase contrast to handle poor lighting
             lowHigh = stretchlim(imageRGB, [0.01 0.99]);
             enhancedImage = imadjust(imageRGB, lowHigh, []);
 
-            % Fjerner kamera-støj (Gaussian/Median-filter logik)
+            % Remove camera noise (Gaussian filter)
             smoothImage = imgaussfilt(enhancedImage, 1);
             
-            % Konverter til HSV
+            % Convert to HSV
             hsvImage = rgb2hsv(smoothImage);
             
-            % --- B. THRESHOLDING (Farve-segmentering) ---
+            % --- B. THRESHOLDING (Color segmentation) ---
             satMin = 0.50; valMin = 0.20;
             
-            % --- FIND RØD CIRKEL MASK ---
+            % --- RED CIRCLE MASK ---
             BW_red = (hsvImage(:,:,1) >= 0.90 | hsvImage(:,:,1) <= 0.10) & ...
                      (hsvImage(:,:,2) >= satMin) & ...
                      (hsvImage(:,:,3) >= valMin);
             
-            % --- FIND BLÅ CIRKEL MASK ---
+            % --- BLUE CIRCLE MASK ---
             BW_blue = (hsvImage(:,:,1) >= 0.55 & hsvImage(:,:,1) <= 0.65) & ...
                       (hsvImage(:,:,2) >= satMin) & ...
                       (hsvImage(:,:,3) >= valMin);
 
-            % Morfologi: Ryd op i begge masker
+            % Morphology: Clean up both masks
             se = strel('disk', 5);
             BW_red_clean = imclose(imopen(BW_red, se), se);
             BW_blue_clean = imclose(imopen(BW_blue, se), se);
 
-            % Find røde cirkler
+            % Find red circles
             [centersR, radiiR] = imfindcircles(BW_red_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersR)
                 diameterR = 2 * radiiR(1);
-                disp(['Fandt en RØD cirkel! Diameter: ', num2str(diameterR), ' px']);
+                disp(['Red circle detected! Diameter: ', num2str(diameterR), ' px']);
             end
 
-            % 4. Find blå cirkler
+            % Find blue circles
             [centersB, radiiB] = imfindcircles(BW_blue_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersB)
                 diameterB = 2 * radiiB(1);
-                disp(['Fandt en BLÅ cirkel! Diameter: ', num2str(diameterB), ' px']);
+                disp(['Blue circle detected! Diameter: ', num2str(diameterB), ' px']);
             end
         
         
@@ -121,31 +122,31 @@ try
         figure(visualise.figImage);
         hold on;
             
-            % Tegn røde cirkler
+            % Draw red circles
             if ~isempty(centersR)
-                % Tegn omridset af cirklen i RØD
+                % Draw circle outline in red
                 viscircles(centersR(1,:), radiiR(1), 'EdgeColor', 'r', 'LineWidth', 2);
-                % Tegn et rødt kryds i centrum
+                % Draw red cross at center
                 plot(centersR(1,1), centersR(1,2), 'r+', 'MarkerSize', 10, 'LineWidth', 2);
-                % (Valgfrit) Skriv diameteren på billedet
+                % Write diameter on image
                 text(centersR(1,1)+10, centersR(1,2), ...
-                     sprintf('Rød (D=%.0f px)', 2*radiiR(1)), ...
+                     sprintf('Red (D=%.0f px)', 2*radiiR(1)), ...
                      'Color', 'r', 'FontSize', 12, 'FontWeight', 'bold');
             end
             
-            % Tegn blå cirkler
+            % Draw blue circles
             if ~isempty(centersB)
-                % Tegn omridset af cirklen i BLÅ
+                % Draw circle outline in blue
                 viscircles(centersB(1,:), radiiB(1), 'EdgeColor', 'b', 'LineWidth', 2);
-                % Tegn et blåt kryds i centrum
+                % Draw blue cross at center
                 plot(centersB(1,1), centersB(1,2), 'b+', 'MarkerSize', 10, 'LineWidth', 2);
-                % (Valgfrit) Skriv diameteren på billedet
+                % Write diameter on image
                 text(centersB(1,1)+10, centersB(1,2), ...
-                     sprintf('Blå (D=%.0f px)', 2*radiiB(1)), ...
+                     sprintf('Blue (D=%.0f px)', 2*radiiB(1)), ...
                      'Color', 'b', 'FontSize', 12, 'FontWeight', 'bold');
             end
             
-            hold off;
+            hold off; % End overlay drawing
 
         %% Exercise 2: Distance Estimation
         H = 0.10; % Real circle size in meters (10 cm)
