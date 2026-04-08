@@ -40,11 +40,15 @@ try
     positionDesired = [1; 1];
 
     %% Calculate offset
+    % Store the initial pose as a reference so all future positions
+    % are relative to where the robot started (origin = [0,0]).
     quatOffset = [poseOffset.orientation.x poseOffset.orientation.y poseOffset.orientation.z poseOffset.orientation.w];
     orientationOffset = quat2eul(quatOffset);  % Convert offset quaternion to Euler angles
     headingOffset = orientationOffset(3); % Extract offset heading (yaw)
 
     %% Calculate transformations for offset
+    % Build rotation (R) and translation (t) matrices to transform
+    % world-frame odometry into a local frame starting at [0,0,0].
     positionOffset = [poseOffset.position.x; poseOffset.position.y];
     R_W2R = [cos(-headingOffset), -sin(-headingOffset); sin(-headingOffset), cos(-headingOffset)];
     t_R2V = -R_W2R * positionOffset;
@@ -81,42 +85,56 @@ try
 
         %% Exercise 1: Object Detection
         % --- A. PREPROCESSING ---
-            % Increase contrast to handle poor lighting
+            % stretchlim finds the intensity range covering 98% of pixels,
+            % then imadjust stretches it to [0,1] — improves contrast
+            % under variable lighting conditions.
             lowHigh = stretchlim(imageRGB, [0.01 0.99]);
             enhancedImage = imadjust(imageRGB, lowHigh, []);
 
-            % Remove camera noise (Gaussian filter)
+            % Gaussian filter (sigma=1) smooths out camera sensor noise
+            % to prevent false edges during circle detection.
             smoothImage = imgaussfilt(enhancedImage, 1);
-            
-            % Convert to HSV
+
+            % Convert RGB to HSV because HSV separates color (Hue) from
+            % brightness (Value), making color-based segmentation more
+            % robust to lighting changes than RGB thresholding.
             hsvImage = rgb2hsv(smoothImage);
-            
+
             % --- B. THRESHOLDING (Color segmentation) ---
+            % Saturation > 0.50 filters out gray/white pixels.
+            % Value > 0.20 filters out very dark pixels.
             satMin = 0.50; valMin = 0.20;
-            
+
             % --- RED CIRCLE MASK ---
+            % Red wraps around in HSV: Hue near 0 (<=0.10) or near 1 (>=0.90).
             BW_red = (hsvImage(:,:,1) >= 0.90 | hsvImage(:,:,1) <= 0.10) & ...
                      (hsvImage(:,:,2) >= satMin) & ...
                      (hsvImage(:,:,3) >= valMin);
-            
+
             % --- BLUE CIRCLE MASK ---
+            % Blue Hue range in HSV is approximately 0.55 to 0.65.
             BW_blue = (hsvImage(:,:,1) >= 0.55 & hsvImage(:,:,1) <= 0.65) & ...
                       (hsvImage(:,:,2) >= satMin) & ...
                       (hsvImage(:,:,3) >= valMin);
 
-            % Morphology: Clean up both masks
+            % Morphology: imopen removes small noise blobs (smaller than
+            % the disk radius), imclose fills small holes inside the circle.
+            % Using a disk structuring element because we are looking for
+            % circular shapes.
             se = strel('disk', 5);
             BW_red_clean = imclose(imopen(BW_red, se), se);
             BW_blue_clean = imclose(imopen(BW_blue, se), se);
 
-            % Find red circles
+            % imfindcircles uses Circular Hough Transform (CHT) to detect
+            % circles on the binary mask. Radius range [20 200] px covers
+            % expected circle sizes at different distances.
+            % 'ObjectPolarity','bright' = white circles on black background.
             [centersR, radiiR] = imfindcircles(BW_red_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersR)
                 diameterR = 2 * radiiR(1);
                 disp(['Red circle detected! Diameter: ', num2str(diameterR), ' px']);
             end
 
-            % Find blue circles
             [centersB, radiiB] = imfindcircles(BW_blue_clean, [20 200], 'ObjectPolarity', 'bright');
             if ~isempty(centersB)
                 diameterB = 2 * radiiB(1);
@@ -155,11 +173,17 @@ try
             hold off; % End overlay drawing
 
         %% Exercise 2: Distance Estimation
+        % Using the pinhole camera model: Dp = f * H / D
+        %   Dp = circle diameter in pixels (from Exercise 1)
+        %   H  = real-world circle diameter (measured: 10 cm)
+        %   D  = distance from camera to circle (what we estimate)
+        %   f  = focal length in pixels (calibrated from multiple measurements)
+        % Rearranged: D = f * H / Dp
         H = 0.10; % Real circle size in meters (10 cm)
-        f = 1226.5;  % Camera focal length in pixels (calibrated)
+        f = 1226.5;  % Camera focal length in pixels (calibrated from 6 measurements)
 
         if ~isempty(centersR)
-            distanceR = f * H / (2 * radiiR(1));
+            distanceR = f * H / (2 * radiiR(1)); % 2*radius = diameter
             fprintf('Red circle distance: %.2f m\n', distanceR);
         end
 
