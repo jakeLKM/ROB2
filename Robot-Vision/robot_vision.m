@@ -29,6 +29,12 @@ try
     
     %% Create figure for TurtleBot's data
     visualise = TurtleBotVisualise();
+
+    %% Create debug figures for image processing stages
+    figRGB = figure('Name', 'RGB Stream', 'NumberTitle', 'off');
+    figMasks = figure('Name', 'Threshold Masks', 'NumberTitle', 'off');
+    figOpen = figure('Name', 'After Opening', 'NumberTitle', 'off');
+    figClose = figure('Name', 'After Closing', 'NumberTitle', 'off');
     
     %% Initialize array for desired positions
     positionDesired = [1; 1];
@@ -68,8 +74,13 @@ try
         visualise = updateScan(visualise, cart);
 
         %% Visualise image
-        imageRGB = flip(image, 1); % Flip image vertically (upside down fix)
-        imageGray = rgb2gray(imageRGB);
+        imageFrame = flip(image, 1); % Flip image vertically (upside down fix)
+        imageGray = im2gray(imageFrame);
+        if ndims(imageFrame) == 3 && size(imageFrame, 3) == 3
+            imageRGB = imageFrame;
+        else
+            imageRGB = cat(3, imageGray, imageGray, imageGray);
+        end
         centersR = []; radiiR = []; % Initialisér som tomme
         centersB = []; radiiB = []; % Initialisér som tomme
         
@@ -99,8 +110,10 @@ try
 
             % Morfologi: Ryd op i begge masker
             se = strel('disk', 5);
-            BW_red_clean = imclose(imopen(BW_red, se), se);
-            BW_blue_clean = imclose(imopen(BW_blue, se), se);
+            BW_red_open = imopen(BW_red, se);
+            BW_blue_open = imopen(BW_blue, se);
+            BW_red_clean = imclose(BW_red_open, se);
+            BW_blue_clean = imclose(BW_blue_open, se);
 
             % Find røde cirkler
             [centersR, radiiR] = imfindcircles(BW_red_clean, [20 200], 'ObjectPolarity', 'bright');
@@ -118,6 +131,36 @@ try
         
         
         visualise = updateImage(visualise, imageGray);
+
+        %% Stream processing stages in separate debug figures
+        figure(figRGB);
+        imshow(imageRGB);
+        title('RGB Stream');
+
+        figure(figMasks);
+        subplot(1,2,1);
+        imshow(BW_red);
+        title('Red Mask (Threshold)');
+        subplot(1,2,2);
+        imshow(BW_blue);
+        title('Blue Mask (Threshold)');
+
+        figure(figOpen);
+        subplot(1,2,1);
+        imshow(BW_red_open);
+        title('Red After Opening');
+        subplot(1,2,2);
+        imshow(BW_blue_open);
+        title('Blue After Opening');
+
+        figure(figClose);
+        subplot(1,2,1);
+        imshow(BW_red_clean);
+        title('Red After Closing');
+        subplot(1,2,2);
+        imshow(BW_blue_clean);
+        title('Blue After Closing');
+
         figure(visualise.figImage);
         hold on;
             
@@ -146,6 +189,7 @@ try
             end
             
             hold off;
+            drawnow limitrate;
    
 
         %% PID controller for heading
@@ -164,7 +208,9 @@ try
         pause(0.1)
     
         %% Exit the loop if the figure is closed
-        if size(findobj(visualise.figAvatar)) == 0 | size(findobj(visualise.figImage)) == 0
+        if ~ishghandle(visualise.figAvatar) || ~ishghandle(visualise.figImage) || ...
+            ~ishghandle(figRGB) || ~ishghandle(figMasks) || ...
+            ~ishghandle(figOpen) || ~ishghandle(figClose)
             ME = MException('NonExeption:EndProgram', 'The program was closed.');
             throw(ME)
         end
@@ -183,7 +229,9 @@ try
         pause(0.1)
     
         %% Exit the loop if the figure is closed
-        if size(findobj(visualise.figAvatar)) == 0 | size(findobj(visualise.figImage)) == 0
+        if ~ishghandle(visualise.figAvatar) || ~ishghandle(visualise.figImage) || ...
+            ~ishghandle(figRGB) || ~ishghandle(figMasks) || ...
+            ~ishghandle(figOpen) || ~ishghandle(figClose)
             ME = MException('NonExeption:EndProgram', 'The program was closed.');
             throw(ME)
         end
